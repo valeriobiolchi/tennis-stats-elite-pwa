@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tennis Stats Elite</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf"></script>
+
+<style>
+body { font-family:-apple-system,BlinkMacSystemFont; background:#f5f6fa; margin:0; padding:20px;}
+.container { max-width:1000px; margin:auto;}
+.card { background:white; padding:20px; margin-bottom:20px; border-radius:14px; box-shadow:0 6px 18px rgba(0,0,0,0.05);}
+h3 { margin-top:0;}
+input,select,button {
+  width:100%; padding:10px; margin-top:10px;
+  border-radius:8px; border:1px solid #ddd;
+}
+button {
+  background:black; color:white; cursor:pointer;
+}
+button:hover { opacity:0.85;}
+.small-btn { width:auto; padding:6px 10px; font-size:12px;}
+.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:15px;}
+.stat-box { background:#fafafa; padding:15px; border-radius:10px; text-align:center; font-weight:600;}
+.match { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #eee;}
+.actions button { margin-left:5px;}
+canvas { margin-top:30px;}
+</style>
+
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Tennis Stats Elite">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+</head>
+
+<body>
+<div class="container">
+
+<div class="card" id="authCard">
+<h3>Login / Registrazione</h3>
+<input type="email" id="email" placeholder="Email">
+<input type="password" id="password" placeholder="Password">
+<button onclick="login()">Login</button>
+<button onclick="register()">Registrati</button>
+</div>
+
+<div id="app" style="display:none;">
+
+<div class="card">
+<button onclick="logout()">Logout</button>
+</div>
+
+<div class="card">
+<h3>Nuova / Modifica Partita</h3>
+<input type="hidden" id="matchId">
+<input type="date" id="date">
+<input type="text" id="opponent" placeholder="Avversario">
+<input type="text" id="result" placeholder="Es: 2-4 4-2 10-4">
+<input type="number" id="opponentElo" placeholder="ELO avversario (default 1500)">
+<button onclick="saveMatch()">Salva</button>
+</div>
+
+<div class="card">
+<h3>Filtro per anno</h3>
+<select id="yearFilter" onchange="render()">
+<option value="">Tutti gli anni</option>
+</select>
+</div>
+
+<div class="card">
+<h3>Dashboard</h3>
+<div class="stats">
+<div class="stat-box" id="winPct"></div>
+<div class="stat-box" id="setPct"></div>
+<div class="stat-box" id="gamePct"></div>
+<div class="stat-box" id="tbPct"></div>
+<div class="stat-box" id="eloCurrent"></div>
+</div>
+</div>
+
+<div class="card">
+<h3>Grafici</h3>
+<canvas id="chartElo"></canvas>
+</div>
+
+<div class="card">
+<h3>Partite</h3>
+<div id="matchesList"></div>
+</div>
+
+</div>
+</div>
+
+<script>
+const SUPABASE_URL="https://uqsyiudmvrabiaticeia.supabase.co";
+const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxc3lpdWRtdnJhYmlhdGljZWlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5NDU0ODIsImV4cCI6MjA4NzUyMTQ4Mn0.JkICvsrfi8znI-aOs2LdIPLs6SzKlKzyS4z2ss_8GIQ";
+const supabaseClient=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+
+let matches=[], charts=[];
+
+/* AUTH */
+async function login(){
+ await supabaseClient.auth.signInWithPassword({email:email.value,password:password.value});
+}
+async function register(){
+ await supabaseClient.auth.signUp({email:email.value,password:password.value});
+ alert("Controlla email");
+}
+async function logout(){ await supabaseClient.auth.signOut(); }
+
+supabaseClient.auth.onAuthStateChange((e,s)=>{
+ if(s){ authCard.style.display="none"; app.style.display="block"; fetchMatches();}
+ else{ authCard.style.display="block"; app.style.display="none";}
+});
+
+/* CRUD */
+async function fetchMatches(){
+ const {data}=await supabaseClient.from("matches").select("*").order("date",{ascending:true});
+ matches=data||[];
+ populateYears();
+ render();
+}
+
+async function saveMatch(){
+ const {data:{user}}=await supabaseClient.auth.getUser();
+ const payload={
+   date:date.value,
+   opponent:opponent.value,
+   result:result.value,
+   opponent_elo:opponentElo.value||1500,
+   user_id:user.id
+ };
+
+ if(matchId.value){
+   await supabaseClient.from("matches").update(payload).eq("id",matchId.value);
+ }else{
+   await supabaseClient.from("matches").insert([payload]);
+ }
+
+ matchId.value="";
+ fetchMatches();
+}
+
+async function deleteMatch(id){
+ await supabaseClient.from("matches").delete().eq("id",id);
+ fetchMatches();
+}
+
+function editMatch(m){
+ matchId.value=m.id;
+ date.value=m.date;
+ opponent.value=m.opponent;
+ result.value=m.result;
+ opponentElo.value=m.opponent_elo;
+}
+
+/* FILTRO ANNO */
+function populateYears(){
+ const years=[...new Set(matches.map(m=>m.date.substring(0,4)))];
+ yearFilter.innerHTML='<option value="">Tutti gli anni</option>';
+ years.forEach(y=>yearFilter.innerHTML+=`<option>${y}</option>`);
+}
+
+function getFiltered(){
+ const y=yearFilter.value;
+ return y?matches.filter(m=>m.date.startsWith(y)):matches;
+}
+
+/* STATS */
+function calculateStats(data){
+ let mWon=0,sWon=0,sTot=0,gWon=0,gTot=0,tbWon=0,tbTot=0;
+
+ data.forEach(match=>{
+   const sets=match.result.split(" ");
+   let w=0,l=0,fw=0,fl=0;
+
+   sets.forEach((set,i)=>{
+     const[a,b]=set.split("-").map(Number);
+     sTot++; gTot+=a+b; gWon+=a;
+     if(a>b){sWon++;w++; if(i<2)fw++;}
+     else{l++; if(i<2)fl++;}
+     if(i===2 && fw===1 && fl===1 && (a>=10||b>=10)){
+       tbTot++; if(a>b)tbWon++;
+     }
+   });
+   if(w>l)mWon++;
+ });
+
+ return{
+   win:(mWon/data.length*100)||0,
+   set:(sWon/sTot*100)||0,
+   game:(gWon/gTot*100)||0,
+   tb:(tbWon/tbTot*100)||0
+ };
+}
+
+/* ELO REALISTICO */
+function calculateElo(data){
+ let elo=1500;
+ const K=32;
+ const history=[];
+
+ data.forEach(match=>{
+   const sets=match.result.split(" ");
+   let w=0,l=0;
+   sets.forEach(s=>{
+     const[a,b]=s.split("-").map(Number);
+     if(a>b)w++; else l++;
+   });
+   const score=w>l?1:0;
+   const oppElo=match.opponent_elo||1500;
+   const expected=1/(1+Math.pow(10,(oppElo-elo)/400));
+   elo=elo+K*(score-expected);
+   history.push(Math.round(elo));
+ });
+
+ return history;
+}
+
+/* RENDER */
+function render(){
+ const data=getFiltered();
+ const stats=calculateStats(data);
+ const eloHistory=calculateElo(data);
+
+ winPct.innerText="Vittorie: "+stats.win.toFixed(1)+"%";
+ setPct.innerText="Set vinti: "+stats.set.toFixed(1)+"%";
+ gamePct.innerText="Giochi vinti: "+stats.game.toFixed(1)+"%";
+ tbPct.innerText="Tie-break vinti: "+stats.tb.toFixed(1)+"%";
+ eloCurrent.innerText="ELO: "+(eloHistory.slice(-1)[0]||1500);
+
+ matchesList.innerHTML="";
+ data.slice().reverse().forEach(m=>{
+   matchesList.innerHTML+=`
+   <div class="match">
+     <span>${m.date} - ${m.opponent} (${m.opponent_elo}) → ${m.result}</span>
+     <div class="actions">
+       <button class="small-btn" onclick='editMatch(${JSON.stringify(m)})'>✏️</button>
+       <button class="small-btn" onclick="deleteMatch(${m.id})">❌</button>
+     </div>
+   </div>`;
+ });
+
+ charts.forEach(c=>c.destroy());
+ charts=[];
+
+ charts.push(new Chart(chartElo,{
+   type:"line",
+   data:{
+     labels:data.map(m=>m.date),
+     datasets:[{
+       label:"ELO Rating",
+       data:eloHistory,
+       borderColor:"black"
+     }]
+   }
+ }));
+}
+</script>
+
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js')
+      .catch(err => console.error('Service worker registration failed:', err));
+  });
+}
+</script>
+
+</body>
+</html>
