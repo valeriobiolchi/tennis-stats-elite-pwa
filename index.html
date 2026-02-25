@@ -1,35 +1,11 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tennis Stats Elite</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tennis Stats Elite</title>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf"></script>
-
-<style>
-body { font-family:-apple-system,BlinkMacSystemFont; background:#f5f6fa; margin:0; padding:20px;}
-.container { max-width:1000px; margin:auto;}
-.card { background:white; padding:20px; margin-bottom:20px; border-radius:14px; box-shadow:0 6px 18px rgba(0,0,0,0.05);}
-h3 { margin-top:0;}
-input,select,button {
-  width:100%; padding:10px; margin-top:10px;
-  border-radius:8px; border:1px solid #ddd;
-}
-button {
-  background:black; color:white; cursor:pointer;
-}
-button:hover { opacity:0.85;}
-.small-btn { width:auto; padding:6px 10px; font-size:12px;}
-.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:15px;}
-.stat-box { background:#fafafa; padding:15px; border-radius:10px; text-align:center; font-weight:600;}
-.match { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #eee;}
-.actions button { margin-left:5px;}
-canvas { margin-top:30px;}
-</style>
-
+  <!-- PWA -->
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -37,242 +13,158 @@ canvas { margin-top:30px;}
   <meta name="apple-mobile-web-app-title" content="Tennis Stats Elite">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
+  <!-- Libs CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf"></script>
+
+  <style>
+    body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif; background:#f5f6fa; margin:0; padding:20px; }
+    .container { max-width:1000px; margin:auto; }
+    .card { background:white; padding:20px; margin-bottom:20px; border-radius:14px; box-shadow:0 6px 18px rgba(0,0,0,0.05);} 
+    h3 { margin-top:0; }
+
+    /* THEME */
+    :root{ --accent:#9acd32; --accent-strong:#7fb02a; --accent-ink:#0a0a0a; --ease:cubic-bezier(.2,.8,.2,1); --t:180ms; }
+    label, .stat-box, h3{ color: var(--accent-strong); }
+
+    input,select,button{ width:100%; padding:10px; margin-top:10px; border-radius:8px; border:1px solid #ddd; font-size:16px; }
+    button{ background:var(--accent); color:var(--accent-ink); border:1px solid var(--accent-strong); cursor:pointer; transition: background-color var(--t) var(--ease), color var(--t) var(--ease), border-color var(--t) var(--ease), box-shadow var(--t) var(--ease), transform 120ms ease-out; }
+    button:hover{ background:var(--accent-strong); color:#fff; box-shadow:0 6px 16px rgba(0,0,0,.12); transform: translateY(-1px);} 
+    button:active{ transform: translateY(0); box-shadow:0 3px 8px rgba(0,0,0,.10);} 
+    .small-btn{ width:auto; padding:6px 10px; font-size:12px; background:var(--accent); color:var(--accent-ink); border:1px solid var(--accent-strong);} 
+    .small-btn:hover{ background:var(--accent-strong); color:#fff; }
+
+    input, select{ background:#ffffff; color:#111; border:1px solid #cfd4dc; transition: background-color var(--t) var(--ease), color var(--t) var(--ease), border-color var(--t) var(--ease), box-shadow var(--t) var(--ease); }
+    input::placeholder{ color:#6b7280; }
+    input:focus, select:focus{ outline:none; border-color:var(--accent-strong); box-shadow:0 0 0 3px rgba(124,176,42,.25); }
+    input[type=date]{ color:#111; background:#f7f7f7; -webkit-text-fill-color:#111; }
+    input[type=date]::-webkit-calendar-picker-indicator{ filter: invert(35%); }
+
+    .stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:15px; }
+    .stat-box{ background:#fafafa; padding:15px; border-radius:10px; text-align:center; font-weight:600; transition: background-color var(--t) var(--ease), color var(--t) var(--ease), border-color var(--t) var(--ease), box-shadow var(--t) var(--ease), transform 120ms ease-out; }
+    .stat-box:hover{ box-shadow:0 8px 20px rgba(0,0,0,.08); transform: translateY(-2px); }
+
+    .match{ display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #eee; transition: background-color var(--t) var(--ease), color var(--t) var(--ease); }
+    .actions button{ margin-left:5px; }
+    canvas{ margin-top:30px; }
+  </style>
 </head>
-
 <body>
-<div class="container">
+  <div class="container">
+    <div class="card" id="authCard">
+      <h3>Login / Registrazione</h3>
+      <input type="email" id="email" placeholder="Email">
+      <input type="password" id="password" placeholder="Password">
+      <button onclick="login()">Login</button>
+      <button onclick="register()">Registrati</button>
+    </div>
 
-<div class="card" id="authCard">
-<h3>Login / Registrazione</h3>
-<input type="email" id="email" placeholder="Email">
-<input type="password" id="password" placeholder="Password">
-<button onclick="login()">Login</button>
-<button onclick="register()">Registrati</button>
-</div>
+    <div id="app" style="display:none;">
+      <div class="card">
+        <button onclick="logout()">Logout</button>
+      </div>
 
-<div id="app" style="display:none;">
+      <div class="card">
+        <h3>Nuova / Modifica Partita</h3>
+        <input type="hidden" id="matchId">
+        <label for="date">Data</label>
+        <input type="date" id="date">
+        <label for="opponent">Avversario</label>
+        <input type="text" id="opponent" placeholder="Avversario">
+        <label for="result">Risultato</label>
+        <input type="text" id="result" placeholder="Es: 2-4 4-2 10-4">
+        <label for="opponentElo">ELO avversario</label>
+        <input type="number" id="opponentElo" placeholder="ELO avversario (default 1500)">
+        <button onclick="saveMatch()">Salva</button>
+      </div>
 
-<div class="card">
-<button onclick="logout()">Logout</button>
-</div>
+      <div class="card">
+        <h3>Filtro per anno</h3>
+        <select id="yearFilter" onchange="render()">
+          <option value="">Tutti gli anni</option>
+        </select>
+      </div>
 
-<div class="card">
-<h3>Nuova / Modifica Partita</h3>
-<input type="hidden" id="matchId">
-<input type="date" id="date">
-<input type="text" id="opponent" placeholder="Avversario">
-<input type="text" id="result" placeholder="Es: 2-4 4-2 10-4">
-<input type="number" id="opponentElo" placeholder="ELO avversario (default 1500)">
-<button onclick="saveMatch()">Salva</button>
-</div>
+      <div class="card">
+        <h3>Dashboard</h3>
+        <div class="stats">
+          <div class="stat-box" id="winPct"></div>
+          <div class="stat-box" id="setPct"></div>
+          <div class="stat-box" id="gamePct"></div>
+          <div class="stat-box" id="tbPct"></div>
+          <div class="stat-box" id="eloCurrent"></div>
+        </div>
+      </div>
 
-<div class="card">
-<h3>Filtro per anno</h3>
-<select id="yearFilter" onchange="render()">
-<option value="">Tutti gli anni</option>
-</select>
-</div>
+      <div class="card">
+        <h3>Grafici</h3>
+        <canvas id="chartElo"></canvas>
+      </div>
 
-<div class="card">
-<h3>Dashboard</h3>
-<div class="stats">
-<div class="stat-box" id="winPct"></div>
-<div class="stat-box" id="setPct"></div>
-<div class="stat-box" id="gamePct"></div>
-<div class="stat-box" id="tbPct"></div>
-<div class="stat-box" id="eloCurrent"></div>
-</div>
-</div>
+      <div class="card">
+        <h3>Partite</h3>
+        <div id="matchesList"></div>
+      </div>
+    </div>
+  </div>
 
-<div class="card">
-<h3>Grafici</h3>
-<canvas id="chartElo"></canvas>
-</div>
+  <script>
+    const SUPABASE_URL="https://uqsyiudmvrabiaticeia.supabase.co"; 
+    const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxc3lpdWRtdnJhYmlhdGljZWlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5NDU0ODIsImV4cCI6MjA4NzUyMTQ4Mn0.JkICvsrfi8znI-aOs2LdIPLs6SzKlKzyS4z2ss_8GIQ"; 
+    const supabaseClient=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+    let matches=[], charts=[];
 
-<div class="card">
-<h3>Partite</h3>
-<div id="matchesList"></div>
-</div>
+    async function login(){ await supabaseClient.auth.signInWithPassword({email:email.value,password:password.value}); }
+    async function register(){ await supabaseClient.auth.signUp({email:email.value,password:password.value}); alert("Controlla email"); }
+    async function logout(){ await supabaseClient.auth.signOut(); }
 
-</div>
-</div>
+    supabaseClient.auth.onAuthStateChange((e,s)=>{ if(s){ authCard.style.display="none"; app.style.display="block"; fetchMatches(); } else { authCard.style.display="block"; app.style.display="none"; } });
 
-<script>
-const SUPABASE_URL="https://uqsyiudmvrabiaticeia.supabase.co";
-const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxc3lpdWRtdnJhYmlhdGljZWlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5NDU0ODIsImV4cCI6MjA4NzUyMTQ4Mn0.JkICvsrfi8znI-aOs2LdIPLs6SzKlKzyS4z2ss_8GIQ";
-const supabaseClient=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+    async function fetchMatches(){
+      const {data,error}=await supabaseClient.from("matches").select("*").order("date",{ascending:true});
+      if(error){ console.error(error); return; }
+      matches=data||[]; populateYears(); render(); 
+    }
 
-let matches=[], charts=[];
+    async function saveMatch(){
+      const {data:{user}}=await supabaseClient.auth.getUser();
+      if(!user){ alert('Devi essere autenticato'); return; }
+      const payload={ date:date.value, opponent:opponent.value, result:result.value, opponent_elo:Number(opponentElo.value||1500), user_id:user.id };
+      if(matchId.value){ await supabaseClient.from("matches").update(payload).eq("id",matchId.value); }
+      else{ await supabaseClient.from("matches").insert([payload]); }
+      matchId.value=""; date.value=""; opponent.value=""; result.value=""; opponentElo.value=""; fetchMatches();
+    }
 
-/* AUTH */
-async function login(){
- await supabaseClient.auth.signInWithPassword({email:email.value,password:password.value});
-}
-async function register(){
- await supabaseClient.auth.signUp({email:email.value,password:password.value});
- alert("Controlla email");
-}
-async function logout(){ await supabaseClient.auth.signOut(); }
+    async function deleteMatch(id){ await supabaseClient.from("matches").delete().eq("id",id); fetchMatches(); }
 
-supabaseClient.auth.onAuthStateChange((e,s)=>{
- if(s){ authCard.style.display="none"; app.style.display="block"; fetchMatches();}
- else{ authCard.style.display="block"; app.style.display="none";}
-});
+    function editMatch(m){ matchId.value=m.id; date.value=m.date; opponent.value=m.opponent; result.value=m.result; opponentElo.value=m.opponent_elo; window.scrollTo({top:0,behavior:'smooth'}); }
 
-/* CRUD */
-async function fetchMatches(){
- const {data}=await supabaseClient.from("matches").select("*").order("date",{ascending:true});
- matches=data||[];
- populateYears();
- render();
-}
+    function populateYears(){ const years=[...new Set(matches.map(m=> (m.date||'').substring(0,4)).filter(Boolean))]; yearFilter.innerHTML='<option value="">Tutti gli anni</option>'; years.forEach(y=>yearFilter.innerHTML+=`<option>${y}</option>`); }
+    function getFiltered(){ const y=yearFilter.value; return y?matches.filter(m=>(m.date||'').startsWith(y)):matches; }
 
-async function saveMatch(){
- const {data:{user}}=await supabaseClient.auth.getUser();
- const payload={
-   date:date.value,
-   opponent:opponent.value,
-   result:result.value,
-   opponent_elo:opponentElo.value||1500,
-   user_id:user.id
- };
+    function calculateStats(data){
+      if(!data||!data.length) return {win:0,set:0,game:0,tb:0};
+      let mWon=0,sWon=0,sTot=0,gWon=0,gTot=0,tbWon=0,tbTot=0;
+      data.forEach(match=>{
+        const sets=(match.result||'').trim().split(/\s+/).filter(Boolean);
+        let w=0,l=0,fw=0,fl=0;
+        sets.forEach((set,i)=>{ const [a,b]=set.split("-").map(Number); if(Number.isNaN(a)||Number.isNaN(b)) return; sTot++; gTot+=a+b; gWon+=a; if(a>b){sWon++;w++; if(i<2)fw++;} else {l++; if(i<2)fl++;} if(i===2 && fw===1 && fl===1 && (a>=10||b>=10)){ tbTot++; if(a>b)tbWon++; } });
+        if(w>l)mWon++;
+      });
+      return{ win:(mWon/data.length*100)||0, set:(sWon/sTot*100)||0, game:(gWon/gTot*100)||0, tb:(tbWon/Math.max(tbTot,1)*100)||0 };
+    }
 
- if(matchId.value){
-   await supabaseClient.from("matches").update(payload).eq("id",matchId.value);
- }else{
-   await supabaseClient.from("matches").insert([payload]);
- }
+    function calculateElo(data){ let elo=1500; const K=32; const history=[]; data.forEach(match=>{ const sets=(match.result||'').trim().split(/\s+/).filter(Boolean); let w=0,l=0; sets.forEach(s=>{ const [a,b]=s.split("-").map(Number); if(!Number.isNaN(a)&&!Number.isNaN(b)){ if(a>b)w++; else l++; } }); const score=w>l?1:0; const oppElo=Number(match.opponent_elo||1500); const expected=1/(1+Math.pow(10,(oppElo-elo)/400)); elo=elo+K*(score-expected); history.push(Math.round(elo)); }); return history; }
 
- matchId.value="";
- fetchMatches();
-}
+    function render(){
+      const data=getFiltered()||[]; const stats=calculateStats(data); const eloHistory=calculateElo(data);
+      winPct.innerText="Vittorie: "+stats.win.toFixed(1)+"%"; setPct.innerText="Set vinti: "+stats.set.toFixed(1)+"%"; gamePct.innerText="Giochi vinti: "+stats.game.toFixed(1)+"%"; tbPct.innerText="Tie-break vinti: "+stats.tb.toFixed(1)+"%"; eloCurrent.innerText="ELO: "+(eloHistory.slice(-1)[0]||1500);
+      matchesList.innerHTML=""; data.slice().reverse().forEach(m=>{ const safeOpp=(m.opponent||"").replace(/[<>&]/g,""); matchesList.innerHTML+=`<div class="match"><span>${m.date||""} - ${safeOpp} (${m.opponent_elo||1500}) → ${m.result||""}</span><div class="actions"><button class="small-btn" onclick='editMatch(${JSON.stringify(m)})'>✏️</button><button class="small-btn" onclick="deleteMatch(${m.id})">❌</button></div></div>`; });
+      charts.forEach(c=>c.destroy()); charts=[]; charts.push(new Chart(chartElo,{ type:"line", data:{ labels:data.map(m=>m.date), datasets:[{ label:"ELO Rating", data:eloHistory, borderColor:"black", tension:0.2 }] }, options:{ responsive:true, plugins:{ legend:{display:true}}, scales:{ x:{ title:{display:true,text:"Data"}}, y:{ title:{display:true,text:"ELO"}} } }));
+    }
 
-async function deleteMatch(id){
- await supabaseClient.from("matches").delete().eq("id",id);
- fetchMatches();
-}
-
-function editMatch(m){
- matchId.value=m.id;
- date.value=m.date;
- opponent.value=m.opponent;
- result.value=m.result;
- opponentElo.value=m.opponent_elo;
-}
-
-/* FILTRO ANNO */
-function populateYears(){
- const years=[...new Set(matches.map(m=>m.date.substring(0,4)))];
- yearFilter.innerHTML='<option value="">Tutti gli anni</option>';
- years.forEach(y=>yearFilter.innerHTML+=`<option>${y}</option>`);
-}
-
-function getFiltered(){
- const y=yearFilter.value;
- return y?matches.filter(m=>m.date.startsWith(y)):matches;
-}
-
-/* STATS */
-function calculateStats(data){
- let mWon=0,sWon=0,sTot=0,gWon=0,gTot=0,tbWon=0,tbTot=0;
-
- data.forEach(match=>{
-   const sets=match.result.split(" ");
-   let w=0,l=0,fw=0,fl=0;
-
-   sets.forEach((set,i)=>{
-     const[a,b]=set.split("-").map(Number);
-     sTot++; gTot+=a+b; gWon+=a;
-     if(a>b){sWon++;w++; if(i<2)fw++;}
-     else{l++; if(i<2)fl++;}
-     if(i===2 && fw===1 && fl===1 && (a>=10||b>=10)){
-       tbTot++; if(a>b)tbWon++;
-     }
-   });
-   if(w>l)mWon++;
- });
-
- return{
-   win:(mWon/data.length*100)||0,
-   set:(sWon/sTot*100)||0,
-   game:(gWon/gTot*100)||0,
-   tb:(tbWon/tbTot*100)||0
- };
-}
-
-/* ELO REALISTICO */
-function calculateElo(data){
- let elo=1500;
- const K=32;
- const history=[];
-
- data.forEach(match=>{
-   const sets=match.result.split(" ");
-   let w=0,l=0;
-   sets.forEach(s=>{
-     const[a,b]=s.split("-").map(Number);
-     if(a>b)w++; else l++;
-   });
-   const score=w>l?1:0;
-   const oppElo=match.opponent_elo||1500;
-   const expected=1/(1+Math.pow(10,(oppElo-elo)/400));
-   elo=elo+K*(score-expected);
-   history.push(Math.round(elo));
- });
-
- return history;
-}
-
-/* RENDER */
-function render(){
- const data=getFiltered();
- const stats=calculateStats(data);
- const eloHistory=calculateElo(data);
-
- winPct.innerText="Vittorie: "+stats.win.toFixed(1)+"%";
- setPct.innerText="Set vinti: "+stats.set.toFixed(1)+"%";
- gamePct.innerText="Giochi vinti: "+stats.game.toFixed(1)+"%";
- tbPct.innerText="Tie-break vinti: "+stats.tb.toFixed(1)+"%";
- eloCurrent.innerText="ELO: "+(eloHistory.slice(-1)[0]||1500);
-
- matchesList.innerHTML="";
- data.slice().reverse().forEach(m=>{
-   matchesList.innerHTML+=`
-   <div class="match">
-     <span>${m.date} - ${m.opponent} (${m.opponent_elo}) → ${m.result}</span>
-     <div class="actions">
-       <button class="small-btn" onclick='editMatch(${JSON.stringify(m)})'>✏️</button>
-       <button class="small-btn" onclick="deleteMatch(${m.id})">❌</button>
-     </div>
-   </div>`;
- });
-
- charts.forEach(c=>c.destroy());
- charts=[];
-
- charts.push(new Chart(chartElo,{
-   type:"line",
-   data:{
-     labels:data.map(m=>m.date),
-     datasets:[{
-       label:"ELO Rating",
-       data:eloHistory,
-       borderColor:"black"
-     }]
-   }
- }));
-}
-</script>
-
-
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js')
-      .catch(err => console.error('Service worker registration failed:', err));
-  });
-}
-</script>
-
+    if ("serviceWorker" in navigator) { window.addEventListener('load', ()=>{ navigator.serviceWorker.register('/service-worker.js').catch(err=>console.error('SW reg failed:',err)); }); }
+  </script>
 </body>
 </html>

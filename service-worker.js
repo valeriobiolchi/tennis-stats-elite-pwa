@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tse-pwa-v1';
+const CACHE_NAME = 'tse-pwa-v3';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -30,7 +30,6 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
-  // For navigation requests, try the network first, fallback to cached index.html
   if (req.mode === 'navigate') {
     event.respondWith(
       fetch(req).catch(() => caches.match('/index.html'))
@@ -38,7 +37,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first for Supabase API, cache as fallback
   if (url.hostname.endsWith('supabase.co')) {
     event.respondWith(
       fetch(req).then((resp) => {
@@ -50,7 +48,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first for other requests (static assets & CDNs)
   event.respondWith(
     caches.match(req).then((cached) => {
       if (cached) return cached;
