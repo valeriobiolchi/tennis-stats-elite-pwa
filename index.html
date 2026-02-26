@@ -56,13 +56,13 @@
       <h3>Login / Registrazione</h3>
       <input type="email" id="email" placeholder="Email">
       <input type="password" id="password" placeholder="Password">
-      <button onclick="login()">Login</button>
-      <button onclick="register()">Registrati</button>
+      <button id="btnLogin">Login</button>
+      <button id="btnRegister">Registrati</button>
     </div>
 
     <div id="app" style="display:none;">
       <div class="card">
-        <button onclick="logout()">Logout</button>
+        <button id="btnLogout">Logout</button>
       </div>
 
       <div class="card">
@@ -76,7 +76,7 @@
         <input type="text" id="result" placeholder="Es: 2-4 4-2 10-4">
         <label for="opponentElo">ELO avversario</label>
         <input type="number" id="opponentElo" placeholder="ELO avversario (default 1500)">
-        <button onclick="saveMatch()">Salva</button>
+        <button id="btnSave">Salva</button>
       </div>
 
       <div class="card">
@@ -109,62 +109,117 @@
     </div>
   </div>
 
-  <script>
-    const SUPABASE_URL="https://uqsyiudmvrabiaticeia.supabase.co"; 
-    const SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxc3lpdWRtdnJhYmlhdGljZWlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5NDU0ODIsImV4cCI6MjA4NzUyMTQ4Mn0.JkICvsrfi8znI-aOs2LdIPLs6SzKlKzyS4z2ss_8GIQ"; 
-    const supabaseClient=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
-    let matches=[], charts=[];
+  
+<script>
+// Safe refs
+const authCard = document.getElementById('authCard');
+const app = document.getElementById('app');
+const emailEl = document.getElementById('email');
+const passwordEl = document.getElementById('password');
+const btnLogin = document.getElementById('btnLogin');
+const btnRegister = document.getElementById('btnRegister');
+const btnLogout = document.getElementById('btnLogout');
+const btnSave = document.getElementById('btnSave');
+const yearFilter = document.getElementById('yearFilter');
+const matchId = document.getElementById('matchId');
+const dateEl = document.getElementById('date');
+const opponentEl = document.getElementById('opponent');
+const resultEl = document.getElementById('result');
+const opponentEloEl = document.getElementById('opponentElo');
+const winPct = document.getElementById('winPct');
+const setPct = document.getElementById('setPct');
+const gamePct = document.getElementById('gamePct');
+const tbPct = document.getElementById('tbPct');
+const eloCurrent = document.getElementById('eloCurrent');
+const matchesList = document.getElementById('matchesList');
+const chartElo = document.getElementById('chartElo');
 
-    async function login(){ await supabaseClient.auth.signInWithPassword({email:email.value,password:password.value}); }
-    async function register(){ await supabaseClient.auth.signUp({email:email.value,password:password.value}); alert("Controlla email"); }
-    async function logout(){ await supabaseClient.auth.signOut(); }
+// Attach events
+btnLogin?.addEventListener('click', login);
+btnRegister?.addEventListener('click', registerUser);
+btnLogout?.addEventListener('click', logout);
+btnSave?.addEventListener('click', saveMatch);
+yearFilter?.addEventListener('change', render);
 
-    supabaseClient.auth.onAuthStateChange((e,s)=>{ if(s){ authCard.style.display="none"; app.style.display="block"; fetchMatches(); } else { authCard.style.display="block"; app.style.display="none"; } });
+// Supabase init (UMD build is expected on window.supabase)
+const SUPABASE_URL = "https://uqsyiudmvrabiaticeia.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxc3lpdWRtdnJhYmlhdGljZWlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5NDU0ODIsImV4cCI6MjA4NzUyMTQ4Mn0.JkICvsrfi8znI-aOs2LdIPLs6SzKlKzyS4z2ss_8GIQ";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let matches = [], charts = [];
 
-    async function fetchMatches(){
-      const {data,error}=await supabaseClient.from("matches").select("*").order("date",{ascending:true});
-      if(error){ console.error(error); return; }
-      matches=data||[]; populateYears(); render(); 
-    }
+async function login(){
+  try{
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+      email: emailEl.value, password: passwordEl.value
+    });
+    if(error) throw error;
+  }catch(err){
+    alert('Login fallito: ' + (err?.message||err));
+    console.error(err);
+  }
+}
 
-    async function saveMatch(){
-      const {data:{user}}=await supabaseClient.auth.getUser();
-      if(!user){ alert('Devi essere autenticato'); return; }
-      const payload={ date:date.value, opponent:opponent.value, result:result.value, opponent_elo:Number(opponentElo.value||1500), user_id:user.id };
-      if(matchId.value){ await supabaseClient.from("matches").update(payload).eq("id",matchId.value); }
-      else{ await supabaseClient.from("matches").insert([payload]); }
-      matchId.value=""; date.value=""; opponent.value=""; result.value=""; opponentElo.value=""; fetchMatches();
-    }
+async function registerUser(){
+  try{
+    const { error } = await supabaseClient.auth.signUp({
+      email: emailEl.value, password: passwordEl.value
+    });
+    if(error) throw error;
+    alert('Registrazione avviata: controlla la tua email.');
+  }catch(err){
+    alert('Registrazione fallita: ' + (err?.message||err));
+    console.error(err);
+  }
+}
 
-    async function deleteMatch(id){ await supabaseClient.from("matches").delete().eq("id",id); fetchMatches(); }
+async function logout(){ await supabaseClient.auth.signOut(); }
 
-    function editMatch(m){ matchId.value=m.id; date.value=m.date; opponent.value=m.opponent; result.value=m.result; opponentElo.value=m.opponent_elo; window.scrollTo({top:0,behavior:'smooth'}); }
+supabaseClient.auth.onAuthStateChange((e, s) => {
+  if(s){ authCard.style.display='none'; app.style.display='block'; fetchMatches(); }
+  else { authCard.style.display='block'; app.style.display='none'; }
+});
 
-    function populateYears(){ const years=[...new Set(matches.map(m=> (m.date||'').substring(0,4)).filter(Boolean))]; yearFilter.innerHTML='<option value="">Tutti gli anni</option>'; years.forEach(y=>yearFilter.innerHTML+=`<option>${y}</option>`); }
-    function getFiltered(){ const y=yearFilter.value; return y?matches.filter(m=>(m.date||'').startsWith(y)):matches; }
+async function fetchMatches(){
+  const { data, error } = await supabaseClient.from('matches').select('*').order('date',{ascending:true});
+  if(error){ console.error(error); return; }
+  matches = data || [];
+  populateYears();
+  render();
+}
 
-    function calculateStats(data){
-      if(!data||!data.length) return {win:0,set:0,game:0,tb:0};
-      let mWon=0,sWon=0,sTot=0,gWon=0,gTot=0,tbWon=0,tbTot=0;
-      data.forEach(match=>{
-        const sets=(match.result||'').trim().split(/\s+/).filter(Boolean);
-        let w=0,l=0,fw=0,fl=0;
-        sets.forEach((set,i)=>{ const [a,b]=set.split("-").map(Number); if(Number.isNaN(a)||Number.isNaN(b)) return; sTot++; gTot+=a+b; gWon+=a; if(a>b){sWon++;w++; if(i<2)fw++;} else {l++; if(i<2)fl++;} if(i===2 && fw===1 && fl===1 && (a>=10||b>=10)){ tbTot++; if(a>b)tbWon++; } });
-        if(w>l)mWon++;
-      });
-      return{ win:(mWon/data.length*100)||0, set:(sWon/sTot*100)||0, game:(gWon/gTot*100)||0, tb:(tbWon/Math.max(tbTot,1)*100)||0 };
-    }
+async function saveMatch(){
+  const { data: { user } } = await supabaseClient.auth.getUser();
+  if(!user){ alert('Devi essere autenticato'); return; }
+  const payload = {
+    date: dateEl.value,
+    opponent: opponentEl.value,
+    result: resultEl.value,
+    opponent_elo: Number(opponentEloEl.value || 1500),
+    user_id: user.id
+  };
+  if(matchId.value){ await supabaseClient.from('matches').update(payload).eq('id', matchId.value); }
+  else { await supabaseClient.from('matches').insert([payload]); }
+  matchId.value = '';
+  dateEl.value = opponentEl.value = resultEl.value = opponentEloEl.value = '';
+  fetchMatches();
+}
 
-    function calculateElo(data){ let elo=1500; const K=32; const history=[]; data.forEach(match=>{ const sets=(match.result||'').trim().split(/\s+/).filter(Boolean); let w=0,l=0; sets.forEach(s=>{ const [a,b]=s.split("-").map(Number); if(!Number.isNaN(a)&&!Number.isNaN(b)){ if(a>b)w++; else l++; } }); const score=w>l?1:0; const oppElo=Number(match.opponent_elo||1500); const expected=1/(1+Math.pow(10,(oppElo-elo)/400)); elo=elo+K*(score-expected); history.push(Math.round(elo)); }); return history; }
+async function deleteMatch(id){ await supabaseClient.from('matches').delete().eq('id', id); fetchMatches(); }
 
-    function render(){
-      const data=getFiltered()||[]; const stats=calculateStats(data); const eloHistory=calculateElo(data);
-      winPct.innerText="Vittorie: "+stats.win.toFixed(1)+"%"; setPct.innerText="Set vinti: "+stats.set.toFixed(1)+"%"; gamePct.innerText="Giochi vinti: "+stats.game.toFixed(1)+"%"; tbPct.innerText="Tie-break vinti: "+stats.tb.toFixed(1)+"%"; eloCurrent.innerText="ELO: "+(eloHistory.slice(-1)[0]||1500);
-      matchesList.innerHTML=""; data.slice().reverse().forEach(m=>{ const safeOpp=(m.opponent||"").replace(/[<>&]/g,""); matchesList.innerHTML+=`<div class="match"><span>${m.date||""} - ${safeOpp} (${m.opponent_elo||1500}) → ${m.result||""}</span><div class="actions"><button class="small-btn" onclick='editMatch(${JSON.stringify(m)})'>✏️</button><button class="small-btn" onclick="deleteMatch(${m.id})">❌</button></div></div>`; });
-      charts.forEach(c=>c.destroy()); charts=[]; charts.push(new Chart(chartElo,{ type:"line", data:{ labels:data.map(m=>m.date), datasets:[{ label:"ELO Rating", data:eloHistory, borderColor:"black", tension:0.2 }] }, options:{ responsive:true, plugins:{ legend:{display:true}}, scales:{ x:{ title:{display:true,text:"Data"}}, y:{ title:{display:true,text:"ELO"}} } }));
-    }
+function editMatch(m){ matchId.value=m.id; dateEl.value=m.date; opponentEl.value=m.opponent; resultEl.value=m.result; opponentEloEl.value=m.opponent_elo; window.scrollTo({top:0, behavior:'smooth'}); }
 
-    if ("serviceWorker" in navigator) { window.addEventListener('load', ()=>{ navigator.serviceWorker.register('/service-worker.js').catch(err=>console.error('SW reg failed:',err)); }); }
-  </script>
+function populateYears(){ const years=[...new Set((matches||[]).map(m=> (m.date||'').substring(0,4)).filter(Boolean))]; yearFilter.innerHTML='<option value="">Tutti gli anni</option>'; years.forEach(y=> yearFilter.innerHTML += `<option>${y}</option>`); }
+function getFiltered(){ const y = yearFilter.value; return y ? matches.filter(m => (m.date||'').startsWith(y)) : matches; }
+
+function calculateStats(data){ if(!data||!data.length) return {win:0,set:0,game:0,tb:0}; let mWon=0,sWon=0,sTot=0,gWon=0,gTot=0,tbWon=0,tbTot=0; data.forEach(match=>{ const sets=(match.result||'').trim().split(/\s+/).filter(Boolean); let w=0,l=0,fw=0,fl=0; sets.forEach((set,i)=>{ const [a,b]=set.split('-').map(Number); if(Number.isNaN(a)||Number.isNaN(b)) return; sTot++; gTot+=a+b; gWon+=a; if(a>b){ sWon++; w++; if(i<2)fw++; } else { l++; if(i<2)fl++; } if(i===2 && fw===1 && fl===1 && (a>=10||b>=10)){ tbTot++; if(a>b) tbWon++; } }); if(w>l) mWon++; }); return { win:(mWon/data.length*100)||0, set:(sWon/sTot*100)||0, game:(gWon/gTot*100)||0, tb:(tbWon/Math.max(tbTot,1)*100)||0 } }
+
+function calculateElo(data){ let elo=1500; const K=32; const history=[]; data.forEach(match=>{ const sets=(match.result||'').trim().split(/\s+/).filter(Boolean); let w=0,l=0; sets.forEach(s=>{ const [a,b]=s.split('-').map(Number); if(!Number.isNaN(a)&&!Number.isNaN(b)){ if(a>b)w++; else l++; } }); const score=w>l?1:0; const oppElo=Number(match.opponent_elo||1500); const expected=1/(1+Math.pow(10,(oppElo-elo)/400)); elo=elo+K*(score-expected); history.push(Math.round(elo)); }); return history; }
+
+function render(){ const data=getFiltered()||[]; const stats=calculateStats(data); const eloHistory=calculateElo(data); winPct.innerText = `Vittorie: ${stats.win.toFixed(1)}%`; setPct.innerText=`Set vinti: ${stats.set.toFixed(1)}%`; gamePct.innerText=`Giochi vinti: ${stats.game.toFixed(1)}%`; tbPct.innerText=`Tie-break vinti: ${stats.tb.toFixed(1)}%`; eloCurrent.innerText = `ELO: ${eloHistory.slice(-1)[0]||1500}`; matchesList.innerHTML=''; data.slice().reverse().forEach(m=>{ const safeOpp=(m.opponent||'').replace(/[<>&]/g,''); matchesList.innerHTML += `<div class="match"><span>${m.date||''} - ${safeOpp} (${m.opponent_elo||1500}) → ${m.result||''}</span><div class="actions"><button class="small-btn" onclick='editMatch(${JSON.stringify(m)})'>✏️</button><button class="small-btn" onclick="deleteMatch(${m.id})">❌</button></div></div>`; }); charts.forEach(c=>c.destroy()); charts=[]; charts.push(new Chart(chartElo,{ type:'line', data:{ labels:data.map(m=>m.date), datasets:[{ label:'ELO Rating', data:eloHistory, borderColor:'black', tension:0.2 }]}, options:{ responsive:true, plugins:{ legend:{display:true}}, scales:{ x:{ title:{display:true, text:'Data'}}, y:{ title:{display:true, text:'ELO'}} } }})); }
+
+// PWA SW
+if ('serviceWorker' in navigator) { window.addEventListener('load', ()=>{ navigator.serviceWorker.register('/service-worker.js?bust=v4').catch(err=>console.error('SW reg failed:', err)); }); }
+</script>
+
 </body>
 </html>
