@@ -28,7 +28,15 @@
     :root{ --accent:#9acd32; --accent-strong:#7fb02a; --accent-ink:#0a0a0a; --ease:cubic-bezier(.2,.8,.2,1); --t:180ms; }
     label, .stat-box, h3{ color: var(--accent-strong); }
 
-    input,select,button{ width:100%; padding:10px; margin-top:10px; border-radius:8px; border:1px solid #ddd; font-size:16px; }
+    input, select, button {
+  width: 95%;
+  margin: 10px auto;
+  display: block;
+  padding: 10px;
+  border-radius: 18px;
+  border: 1px solid #ddd;
+  font-size: 16px;
+}
     button{ background:var(--accent); color:var(--accent-ink); border:1px solid var(--accent-strong); cursor:pointer; transition: background-color var(--t) var(--ease), color var(--t) var(--ease), border-color var(--t) var(--ease), box-shadow var(--t) var(--ease), transform 120ms ease-out; }
     button:hover{ background:var(--accent-strong); color:#fff; box-shadow:0 6px 16px rgba(0,0,0,.12); transform: translateY(-1px);} 
     button:active{ transform: translateY(0); box-shadow:0 3px 8px rgba(0,0,0,.10);} 
@@ -37,7 +45,7 @@
 
     input, select{ background:#ffffff; color:#111; border:1px solid #cfd4dc; transition: background-color var(--t) var(--ease), color var(--t) var(--ease), border-color var(--t) var(--ease), box-shadow var(--t) var(--ease); }
     input::placeholder{ color:#6b7280; }
-    input:focus, select:focus{ outline:none; border-color:var(--accent-strong); box-shadow:0 0 0 3px rgba(124,176,42,.25); }
+    input:focus, select:focus{ outline:none; border-color:var(--accent-strong); box-shadow:0 6px 16px 3px rgba(124,176,42,.25); }
     input[type=date]{ color:#111; background:#f7f7f7; -webkit-text-fill-color:#111; }
     input[type=date]::-webkit-calendar-picker-indicator{ filter: invert(35%); }
 
